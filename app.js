@@ -100,6 +100,9 @@ function render(view) {
         el.style.background = getColor(s);
         el.textContent = `Tisch ${t.id}`;
 
+        const timerEl = document.createElement('small');
+el.appendChild(timerEl);
+
         let longPress;
 
         el.addEventListener('touchstart', () => {
@@ -112,11 +115,35 @@ function render(view) {
 
         el.addEventListener('touchend', () => clearTimeout(longPress));
 
-        el.addEventListener('click', () => {
-          activeTableId = t.id;
-          overlayTitle.textContent = `Tisch ${t.id}`;
-          overlay.style.display = 'block';
-        });
+        let lastTap = 0;
+
+el.addEventListener('click', () => {
+  const now = Date.now();
+  if (now - lastTap < 300) { // Doppeltipp
+    const s = getTableState(t.id);
+    s.status = 'reminder';
+    s.since = s.since || Date.now(); // Timer starten falls noch nicht
+    saveState();
+    render(viewSelect.value);
+  } else {
+    // normaler Tap → Overlay
+    activeTableId = t.id;
+    overlayTitle.textContent = `Tisch ${t.id}`;
+    overlay.style.display = 'block';
+  }
+  lastTap = now;
+});
+
+        let longPress;
+el.addEventListener('touchstart', () => {
+  longPress = setTimeout(() => {
+    contextTableId = t.id;
+    ctxTitle.textContent = `Tisch ${t.id}`;
+    contextMenu.style.display = 'block';
+  }, 600);
+});
+
+el.addEventListener('touchend', () => clearTimeout(longPress));
 
         grid.appendChild(el);
       });
@@ -170,3 +197,39 @@ viewSelect.onchange = e => render(e.target.value);
 
 setInterval(() => render(viewSelect.value), 30000);
 render('all');
+
+function updateTimers() {
+  layoutData.areas.forEach(area => {
+    area.tables.forEach(t => {
+      const s = getTableState(t.id);
+      const el = layoutEl.querySelector(`.table:contains('Tisch ${t.id}')`);
+      if (el) {
+        const timerEl = el.querySelector('small');
+        if (s.status === 'occupied' || s.status === 'reminder' || s.status === 'paid') {
+          const mins = Math.floor((Date.now() - s.since) / 60000);
+          timerEl.textContent = `${mins} min`;
+        } else {
+          timerEl.textContent = '';
+        }
+      }
+    });
+  });
+}
+setInterval(updateTimers, 1000);
+
+document.getElementById('importJson').addEventListener('change', e => {
+  const file = e.target.files[0];
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try {
+      const json = JSON.parse(evt.target.result);
+      layoutData.areas = json.areas;
+      state = {}; // reset state
+      saveState();
+      render(viewSelect.value);
+    } catch(err) {
+      alert('Ungültiges JSON');
+    }
+  };
+  reader.readAsText(file);
+});
