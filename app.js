@@ -1,15 +1,34 @@
 const layoutData = {
-  areas:[
-    {id:'og',name:'Obergeschoss',grid:{columns:7,rows:6},
-      tables:[{id:1,x:2,y:1},{id:2,x:3,y:1},{id:3,x:4,y:1},{id:4,x:5,y:1},
-              {id:5,x:1,y:2},{id:6,x:1,y:3},{id:7,x:1,y:4},{id:8,x:1,y:5},{id:9,x:1,y:6},
-              {id:10,x:6,y:2},{id:11,x:6,y:3},{id:12,x:6,y:4},{id:13,x:6,y:5},{id:14,x:6,y:6}]},
-    {id:'eg',name:'Erdgeschoss',grid:{columns:3,rows:2},
-      tables:[{id:21,x:1,y:1},{id:22,x:2,y:1},{id:23,x:3,y:1},
-              {id:24,x:1,y:2},{id:25,x:2,y:2},{id:26,x:3,y:2}]},
-    {id:'terrasse',name:'Terrasse',grid:{columns:5,rows:4},
-      tables:[{id:101,x:1,y:1},{id:102,x:2,y:1},{id:103,x:3,y:1},{id:104,x:4,y:1},{id:105,x:5,y:1},
-              {id:106,x:1,y:3},{id:107,x:2,y:3},{id:108,x:3,y:3},{id:109,x:4,y:3},{id:110,x:5,y:3}]}
+  "areas": [
+    {
+      "id": "og",
+      "name": "Obergeschoss",
+      "grid": {"columns": 5, "rows": 8},
+      "tables": [
+        {"id": 101, "x": 4, "y": 5}, {"id": 102, "x": 5, "y": 4}, {"id": 103, "x": 5, "y": 3}, {"id": 104, "x": 5, "y": 2},
+        {"id": 105, "x": 5, "y": 1}, {"id": 106, "x": 4, "y": 1}, {"id": 107, "x": 3, "y": 2}, {"id": 108, "x": 2, "y": 1}, {"id": 109, "x": 1, "y": 1},
+        {"id": 110, "x": 1, "y": 2}, {"id": 111, "x": 1, "y": 3}, {"id": 112, "x": 1, "y": 4}, {"id": 113, "x": 2, "y": 5}, {"id": 114, "x": 1, "y": 6},
+	{"id": 115, "x": 1, "y": 7}, {"id": 116, "x": 1, "y": 8}
+      ]
+    },
+    {
+      "id": "eg",
+      "name": "Erdgeschoss",
+      "grid": {"columns": 3, "rows": 2},
+      "tables": [
+        {"id": 21, "x": 1, "y": 1}, {"id": 22, "x": 2, "y": 1}, {"id": 23, "x": 3, "y": 1},
+        {"id": 24, "x": 1, "y": 2}, {"id": 25, "x": 2, "y": 2}, {"id": 26, "x": 3, "y": 2}
+      ]
+    },
+    {
+      "id": "terrasse",
+      "name": "Terrasse",
+      "grid": {"columns": 5, "rows": 4},
+      "tables": [
+        {"id": 101, "x": 1, "y": 1}, {"id": 102, "x": 2, "y": 1}, {"id": 103, "x": 3, "y": 1}, {"id": 104, "x": 4, "y": 1}, {"id": 105, "x": 5, "y": 1},
+        {"id": 106, "x": 1, "y": 3}, {"id": 107, "x": 2, "y": 3}, {"id": 108, "x": 3, "y": 3}, {"id": 109, "x": 4, "y": 3}, {"id": 110, "x": 5, "y": 3}
+      ]
+    }
   ]
 };
 
@@ -75,23 +94,32 @@ function render(view){
       const timerEl=document.createElement('small');
       el.appendChild(timerEl);
 
-      // Doppeltipp für schnelle Erinnerung
-      let lastTap=0;
-      el.addEventListener('click',()=>{
-        const now=Date.now();
-        if(now-lastTap<300){ // doppeltipp
-          s.status='reminder';
-          s.since=s.since||Date.now();
-          saveState();
-          render(viewSelect.value);
-        } else {
-          // normaler Tap → Overlay
-          activeTableId=t.id;
-          overlayTitle.textContent=`Tisch ${t.id}`;
-          overlay.style.display='block';
-        }
-        lastTap=now;
-      });
+      let lastTap = 0;
+let tapTimeout;
+
+el.addEventListener('touchend', e => {
+  const now = Date.now();
+
+  if (now - lastTap < 300) {
+    // Doppeltipp → schnelle Erinnerung
+    const s = getTableState(t.id);
+    s.status = 'reminder';
+    s.since = s.since || Date.now();
+    saveState();
+    render(viewSelect.value);
+
+    clearTimeout(tapTimeout); // Overlay verhindern
+  } else {
+    // Einzeltipp → Overlay verzögert öffnen
+    tapTimeout = setTimeout(() => {
+      activeTableId = t.id;
+      overlayTitle.textContent = `Tisch ${t.id}`;
+      overlay.style.display = 'block';
+    }, 300); // Warte kurz, ob Doppeltipp kommt
+  }
+
+  lastTap = now;
+});
 
       // LongPress → Kontextmenü
       let longPress;
