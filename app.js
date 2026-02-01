@@ -246,9 +246,8 @@ function updateVisuals() {
         el.dataset.status = s.status;
       }
 
-      // NEU: Counter Update
+      // Bedien Counter
       // Zeige Zahl nur, wenn > 0 und der Tisch aktiv ist (nicht frei/bezahlt)
-      // (Du kannst "paid" hinzufügen, wenn du die Rundenanzahl auch beim Bezahlen sehen willst)
       if (s.resetCount > 0 && (s.status === 'occupied' || s.status === 'reminder' || s.status === 'paid')) {
         cntEl.textContent = s.resetCount;
       } else {
@@ -262,7 +261,7 @@ function updateVisuals() {
         timerText = `${mins} min`;
       } else if (s.status === "paid") {
          const mins = Math.floor((now - s.since) / 60000);
-         timerText = `ok (${mins}m)`;
+         timerText = `Bezahlt (${mins}m)`;
       }
       
       if (timerEl.textContent !== timerText) {
