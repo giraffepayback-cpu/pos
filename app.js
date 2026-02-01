@@ -5,28 +5,29 @@ const layoutData = {
       "name": "Obergeschoss",
       "grid": {"columns": 5, "rows": 8},
       "tables": [
-        {"id": 101, "x": 4, "y": 5}, {"id": 102, "x": 5, "y": 4}, {"id": 103, "x": 5, "y": 3}, {"id": 104, "x": 5, "y": 2},
+        {"id": 101, "x": 4, "y": 4}, {"id": 102, "x": 5, "y": 5}, {"id": 103, "x": 5, "y": 3}, {"id": 104, "x": 5, "y": 2},
         {"id": 105, "x": 5, "y": 1}, {"id": 106, "x": 4, "y": 1}, {"id": 107, "x": 3, "y": 2}, {"id": 108, "x": 2, "y": 1}, {"id": 109, "x": 1, "y": 1},
-        {"id": 110, "x": 1, "y": 2}, {"id": 111, "x": 1, "y": 3}, {"id": 112, "x": 1, "y": 4}, {"id": 113, "x": 2, "y": 5}, {"id": 114, "x": 1, "y": 6},
+        {"id": 110, "x": 1, "y": 2}, {"id": 111, "x": 1, "y": 3}, {"id": 112, "x": 1, "y": 5}, {"id": 113, "x": 2, "y": 4}, {"id": 114, "x": 1, "y": 6},
 	{"id": 115, "x": 1, "y": 7}, {"id": 116, "x": 1, "y": 8}
       ]
     },
     {
       "id": "eg",
       "name": "Erdgeschoss",
-      "grid": {"columns": 3, "rows": 2},
+      "grid": {"columns": 7, "rows": 3},
       "tables": [
-        {"id": 21, "x": 1, "y": 1}, {"id": 22, "x": 2, "y": 1}, {"id": 23, "x": 3, "y": 1},
-        {"id": 24, "x": 1, "y": 2}, {"id": 25, "x": 2, "y": 2}, {"id": 26, "x": 3, "y": 2}
+        {"id": 1, "x": 1, "y": 3}, {"id": 2, "x": 1, "y": 1}, {"id": 3, "x": 3, "y": 1},
+        {"id": 4, "x": 5, "y": 1}, {"id": 5, "x": 7, "y": 1}, {"id": 6, "x": 7, "y": 3},
+	{"id": 7, "x": 4, "y": 3}
       ]
     },
     {
       "id": "terrasse",
       "name": "Terrasse",
-      "grid": {"columns": 5, "rows": 4},
+      "grid": {"columns": 7, "rows": 1},
       "tables": [
-        {"id": 101, "x": 1, "y": 1}, {"id": 102, "x": 2, "y": 1}, {"id": 103, "x": 3, "y": 1}, {"id": 104, "x": 4, "y": 1}, {"id": 105, "x": 5, "y": 1},
-        {"id": 106, "x": 1, "y": 3}, {"id": 107, "x": 2, "y": 3}, {"id": 108, "x": 3, "y": 3}, {"id": 109, "x": 4, "y": 3}, {"id": 110, "x": 5, "y": 3}
+        {"id": 27, "x": 1, "y": 1}, {"id": 28, "x": 2, "y": 1}, {"id": 29, "x": 3, "y": 1},
+	{"id": 20, "x": 5, "y": 1}, {"id": 21, "x": 6, "y": 1}, {"id": 22, "x": 7, "y": 1},
       ]
     }
   ]
@@ -85,6 +86,9 @@ function render(view){
     area.tables.forEach(t=>{
       const s=getTableState(t.id);
       const el=document.createElement('div');
+		let longPressTriggered = false;
+		let clickTimeout;
+		
       el.className='table';
       el.style.gridColumn=t.x;
       el.style.gridRow=t.y;
@@ -97,7 +101,15 @@ function render(view){
       let lastTap = 0;
 let tapTimeout;
 
+/* ---------- Touch-Listener ---------- */
+
 el.addEventListener('touchend', e => {
+ clearTimeout(longPress);
+
+  if (longPressTriggered) {
+    return;
+  }
+	
   const now = Date.now();
 
   if (now - lastTap < 300) {
@@ -120,11 +132,41 @@ el.addEventListener('touchend', e => {
 
   lastTap = now;
 });
+	
+/* ---------- Maus Listener ---------- */
+el.addEventListener('click', e => {
+  // verhindert doppelte Auslösung durch Touch + Maus
+  if (e.pointerType === 'touch') return;
+
+  clickTimeout = setTimeout(() => {
+    activeTableId = t.id;
+    overlayTitle.textContent = `Tisch ${t.id}`;
+    overlay.style.display = 'block';
+  }, 250);
+});
+
+el.addEventListener('dblclick', e => {
+  e.preventDefault();
+  clearTimeout(clickTimeout);
+
+  const s = getTableState(t.id);
+  s.status = 'reminder';
+  s.since = s.since || Date.now();
+  saveState();
+  render(viewSelect.value);
+});
+
+el.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  openContextMenu(t.id);
+});
 
       // LongPress → Kontextmenü
       let longPress;
       el.addEventListener('touchstart',()=>{
+		  longPressTriggered = false;
         longPress=setTimeout(()=>{
+			longPressTriggered = true;
           contextTableId=t.id;
           const rect = el.getBoundingClientRect();
           contextMenu.style.top = `${rect.bottom + window.scrollY}px`;
