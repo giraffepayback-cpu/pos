@@ -122,32 +122,34 @@ function render() {
         }
       });
 
-      el.addEventListener("pointerup", e => {
-        clearTimeout(longPressTimer);
+     el.addEventListener("pointerup", e => {
+  // ⛔ Rechtsklick darf KEIN Tap sein
+  if (e.pointerType === "mouse" && e.button !== 0) return;
 
-        if (longPressTriggered) return;
+  clearTimeout(longPressTimer);
 
-        const now = Date.now();
+  if (longPressTriggered) return;
 
-        if (now - lastTap < 300) {
-          // DOUBLE TAP
-          s.status = "reminder";
-          s.since = s.since || Date.now();
-          saveState();
-          render();
-        } else {
-          // SINGLE TAP (delayed)
-          setTimeout(() => {
-            if (Date.now() - lastTap >= 300) {
-              activeTableId = t.id;
-              overlayTitle.textContent = `Tisch ${t.id}`;
-              overlay.style.display = "block";
-            }
-          }, 300);
-        }
+  const now = Date.now();
 
-        lastTap = now;
-      });
+  if (now - lastTap < 300) {
+    // DOUBLE TAP
+    s.status = "reminder";
+    s.since = s.since || Date.now();
+    saveState();
+    render();
+  } else {
+    setTimeout(() => {
+      if (Date.now() - lastTap >= 300) {
+        activeTableId = t.id;
+        overlayTitle.textContent = `Tisch ${t.id}`;
+        overlay.style.display = "block";
+      }
+    }, 300);
+  }
+
+  lastTap = now;
+});
 
       el.addEventListener("contextmenu", e => {
         e.preventDefault();
@@ -172,9 +174,16 @@ function openContextMenu(id, el) {
   contextMenu.style.display = "block";
 }
 
-document.addEventListener("pointerdown", e => {
-  if (!contextMenu.contains(e.target)) {
-    contextMenu.style.display = "none";
+el.addEventListener("pointerdown", e => {
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+
+  longPressTriggered = false;
+
+  if (e.pointerType === "touch") {
+    longPressTimer = setTimeout(() => {
+      longPressTriggered = true;
+      openContextMenu(t.id, el);
+    }, 600);
   }
 });
 
