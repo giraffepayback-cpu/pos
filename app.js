@@ -1,4 +1,6 @@
-const layoutData = {
+/* ================== DATA ================== */
+
+let layoutData = {
   "areas": [
     {
       "id": "og",
@@ -31,266 +33,224 @@ const layoutData = {
       ]
     }
   ]
-};
+}};
 
-const layoutEl=document.getElementById('layout');
-const viewSelect=document.getElementById('viewSelect');
-const overlay=document.getElementById('overlay');
-const overlayTitle=document.getElementById('overlayTitle');
-const backBtn=document.getElementById('backBtn');
-const btnOccupied=document.getElementById('btnOccupied');
-const btnFree=document.getElementById('btnFree');
-const btnPaid=document.getElementById('btnPaid');
-const importJson=document.getElementById('importJson');
+/* ================== DOM ================== */
 
-const contextMenu = document.getElementById('contextMenu');
-const ctxTitle = document.getElementById('ctxTitle');
-const ctxMove = document.getElementById('ctxMove');
-const ctxServed = document.getElementById('ctxServed');
-const ctxReminder = document.getElementById('ctxReminder');
-const ctxReminderText = document.getElementById('ctxReminderText');
+const layoutEl = document.getElementById("layout");
+const overlay = document.getElementById("overlay");
+const overlayTitle = document.getElementById("overlayTitle");
+const backBtn = document.getElementById("backBtn");
+const btnOccupied = document.getElementById("btnOccupied");
+const btnFree = document.getElementById("btnFree");
+const btnPaid = document.getElementById("btnPaid");
 
-const STORAGE_KEY='pos-table-state';
-let state=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
-let activeTableId=null;
-let contextTableId=null;
+const contextMenu = document.getElementById("contextMenu");
+const ctxTitle = document.getElementById("ctxTitle");
+const ctxMove = document.getElementById("ctxMove");
+const ctxServed = document.getElementById("ctxServed");
+const ctxReminder = document.getElementById("ctxReminder");
 
-function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
-function getTableState(id){ if(!state[id]) state[id]={status:'free',since:null}; return state[id]; }
-function getColor(s){
-  if(s.status==='reminder') return 'var(--reminder)';
-  if(s.status==='paid') return 'var(--paid)';
-  if(s.status==='occupied'){
-    const mins=(Date.now()-s.since)/60000;
-    if(mins>=30) return 'var(--occupied-red)';
-    if(mins>=15) return 'var(--occupied-yellow)';
-    return 'var(--occupied-green)';
-  }
-  return 'var(--free)';
+/* ================== STATE ================== */
+
+const STORAGE_KEY = "pos-state";
+let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+let activeTableId = null;
+let contextTableId = null;
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-/* ---------- render ---------- */
-function render(view){
-  layoutEl.innerHTML='';
-  layoutData.areas.filter(a=>view==='all'||a.id===view).forEach(area=>{
-    const section=document.createElement('section');
-    section.className='area';
-    const h2=document.createElement('h2');
-    h2.textContent=area.name;
-    section.appendChild(h2);
+function getTableState(id) {
+  if (!state[id]) state[id] = { status: "free", since: null };
+  return state[id];
+}
 
-    const grid=document.createElement('div');
-    grid.className='grid';
-    grid.style.gridTemplateColumns=`repeat(${area.grid.columns},1fr)`;
+/* ================== COLOR ================== */
 
-    area.tables.forEach(t=>{
-      const s=getTableState(t.id);
-      const el=document.createElement('div');
-		let longPressTriggered = false;
-		let clickTimeout = null;
-		let clickTimeout;
-		
-      el.className='table';
-      el.style.gridColumn=t.x;
-      el.style.gridRow=t.y;
-      el.style.background=getColor(s);
-      el.textContent=`Tisch ${t.id}`;
+function getColor(s) {
+  if (s.status === "reminder") return "#9b59b6";
+  if (s.status === "paid") return "#aaa";
+  if (s.status === "occupied") {
+    const mins = (Date.now() - s.since) / 60000;
+    if (mins >= 30) return "#e74c3c";
+    if (mins >= 15) return "#f1c40f";
+    return "#2ecc71";
+  }
+  return "#666";
+}
 
-      const timerEl=document.createElement('small');
-      el.appendChild(timerEl);
+/* ================== RENDER ================== */
 
+function render() {
+  layoutEl.innerHTML = "";
+
+  layoutData.areas.forEach(area => {
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    grid.style.gridTemplateColumns = `repeat(${area.grid.columns},1fr)`;
+
+    area.tables.forEach(t => {
+      const s = getTableState(t.id);
+      const el = document.createElement("div");
+      el.className = "table";
+      el.style.gridColumn = t.x;
+      el.style.gridRow = t.y;
+      el.style.background = getColor(s);
+      el.textContent = `Tisch ${t.id}`;
+
+      const timer = document.createElement("small");
+      el.appendChild(timer);
+
+      /* ====== INTERACTION LOGIC ====== */
+
+      let downTime = 0;
       let lastTap = 0;
-let tapTimeout;
+      let longPressTimer = null;
+      let longPressTriggered = false;
 
-/* ---------- Touch-Listener ---------- */
+      el.addEventListener("pointerdown", e => {
+        downTime = Date.now();
+        longPressTriggered = false;
 
-el.addEventListener('touchend', e => {
- clearTimeout(longPress);
-
-  if (longPressTriggered) {
-    return;
-  }
-	
-  const now = Date.now();
-
-  if (now - lastTap < 300) {
-    // Doppeltipp → schnelle Erinnerung
-    const s = getTableState(t.id);
-    s.status = 'reminder';
-    s.since = s.since || Date.now();
-    saveState();
-    render(viewSelect.value);
-
-    clearTimeout(tapTimeout); // Overlay verhindern
-  } else {
-    // Einzeltipp → Overlay verzögert öffnen
-    tapTimeout = setTimeout(() => {
-      activeTableId = t.id;
-      overlayTitle.textContent = `Tisch ${t.id}`;
-      overlay.style.display = 'block';
-    }, 300); // Warte kurz, ob Doppeltipp kommt
-  }
-
-  lastTap = now;
-});
-	
-/* ---------- Maus Listener ---------- */
-el.addEventListener('click', e => {
-  if (longPressTriggered) return;
-
-  clickTimeout = setTimeout(() => {
-    activeTableId = t.id;
-    overlayTitle.textContent = `Tisch ${t.id}`;
-    overlay.style.display = 'block';
-  }, 250);
-});
-
-el.addEventListener('dblclick', e => {
-  e.preventDefault();
-  clearTimeout(clickTimeout);
-
-  const s = getTableState(t.id);
-  s.status = 'reminder';
-  s.since = s.since || Date.now();
-  saveState();
-  render(viewSelect.value);
-});
-
-el.addEventListener('contextmenu', e => {
-  e.preventDefault();
-  clearTimeout(clickTimeout);
-  openContextMenu(t.id);
-});
-
-      // LongPress → Kontextmenü
-      let longPress;
-      el.addEventListener('touchstart',()=>{
-		  longPressTriggered = false;
-		  
-        longPress=setTimeout(()=>{
-			longPressTriggered = true;
-			 clearTimeout(clickTimeout);
-          contextTableId=t.id;
-          const rect = el.getBoundingClientRect();
-          contextMenu.style.top = `${rect.bottom + window.scrollY}px`;
-          contextMenu.style.left = `${rect.left + window.scrollX}px`;
-          ctxTitle.textContent=`Tisch ${t.id}`;
-          const st=getTableState(t.id);
-          ctxReminderText.textContent = st.reminderText || '';
-          contextMenu.style.display='block';
-        },600);
+        if (e.pointerType === "touch") {
+          longPressTimer = setTimeout(() => {
+            longPressTriggered = true;
+            openContextMenu(t.id, el);
+          }, 600);
+        }
       });
-      el.addEventListener('touchend',()=>clearTimeout(longPress));
+
+      el.addEventListener("pointerup", e => {
+        clearTimeout(longPressTimer);
+
+        if (longPressTriggered) return;
+
+        const now = Date.now();
+
+        if (now - lastTap < 300) {
+          // DOUBLE TAP
+          s.status = "reminder";
+          s.since = s.since || Date.now();
+          saveState();
+          render();
+        } else {
+          // SINGLE TAP (delayed)
+          setTimeout(() => {
+            if (Date.now() - lastTap >= 300) {
+              activeTableId = t.id;
+              overlayTitle.textContent = `Tisch ${t.id}`;
+              overlay.style.display = "block";
+            }
+          }, 300);
+        }
+
+        lastTap = now;
+      });
+
+      el.addEventListener("contextmenu", e => {
+        e.preventDefault();
+        openContextMenu(t.id, el);
+      });
 
       grid.appendChild(el);
     });
 
-    section.appendChild(grid);
-    layoutEl.appendChild(section);
+    layoutEl.appendChild(grid);
   });
 }
 
-/* ---------- overlay ---------- */
-backBtn.onclick=()=>overlay.style.display='none';
-btnOccupied.onclick=()=>{
-  const s=getTableState(activeTableId);
-  s.status='occupied';
-  s.since=Date.now();
-  saveState();
-  overlay.style.display='none';
-  render(viewSelect.value);
-};
-btnFree.onclick=()=>{
-  const s=getTableState(activeTableId);
-  s.status='free';
-  s.since=null;
-  saveState();
-  overlay.style.display='none';
-  render(viewSelect.value);
-};
-btnPaid.onclick=()=>{
-  const s=getTableState(activeTableId);
-  s.status='paid';
-  s.since=Date.now();
-  saveState();
-  overlay.style.display='none';
-  render(viewSelect.value);
-};
+/* ================== CONTEXT MENU ================== */
 
-/* ---------- Kontextmenü Buttons ---------- */
-ctxMove.onclick = () => {
-  const newTable = prompt('Auf welchen Tisch verschieben?');
-  alert(`Bestellung verschieben auf Tisch ${newTable} (funktional noch nicht implementiert)`);
-  contextMenu.style.display='none';
-};
-ctxServed.onclick = () => {
-  const s = getTableState(contextTableId);
-  s.status='occupied';
-  s.since=Date.now();
-  saveState();
-  contextMenu.style.display='none';
-  render(viewSelect.value);
-};
-ctxReminder.onclick = () => {
-  const text = prompt('Erinnerungstext (optional):','');
-  const s = getTableState(contextTableId);
-  s.status='reminder';
-  s.since = s.since||Date.now();
-  s.reminderText = text;
-  saveState();
-  contextMenu.style.display='none';
-  render(viewSelect.value);
-};
+function openContextMenu(id, el) {
+  contextTableId = id;
+  const rect = el.getBoundingClientRect();
+  contextMenu.style.top = `${rect.bottom + window.scrollY}px`;
+  contextMenu.style.left = `${rect.left + window.scrollX}px`;
+  ctxTitle.textContent = `Tisch ${id}`;
+  contextMenu.style.display = "block";
+}
 
-// Klick außerhalb Kontextmenü schließt es
-document.addEventListener('click',e=>{
-  if(!contextMenu.contains(e.target) && !e.target.classList.contains('table')){
-    contextMenu.style.display='none';
+document.addEventListener("pointerdown", e => {
+  if (!contextMenu.contains(e.target)) {
+    contextMenu.style.display = "none";
   }
 });
 
-/* ---------- JSON Import ---------- */
-importJson.addEventListener('change',e=>{
-  const file=e.target.files[0];
-  const reader=new FileReader();
-  reader.onload=evt=>{
-    try{
-      const json=JSON.parse(evt.target.result);
-      layoutData.areas=json.areas;
-      state={};
-      saveState();
-      render(viewSelect.value);
-    }catch(err){
-      alert('Ungültiges JSON');
+ctxServed.onclick = () => {
+  const s = getTableState(contextTableId);
+  s.status = "occupied";
+  s.since = Date.now();
+  saveState();
+  contextMenu.style.display = "none";
+  render();
+};
+
+ctxReminder.onclick = () => {
+  const text = prompt("Erinnerung (optional)");
+  const s = getTableState(contextTableId);
+  s.status = "reminder";
+  s.since = s.since || Date.now();
+  if (text) s.note = text;
+  saveState();
+  contextMenu.style.display = "none";
+  render();
+};
+
+ctxMove.onclick = () => {
+  prompt("Ziel-Tisch (noch ohne Funktion)");
+  contextMenu.style.display = "none";
+};
+
+/* ================== OVERLAY ================== */
+
+backBtn.onclick = () => overlay.style.display = "none";
+
+btnOccupied.onclick = () => {
+  const s = getTableState(activeTableId);
+  s.status = "occupied";
+  s.since = Date.now();
+  saveState();
+  overlay.style.display = "none";
+  render();
+};
+
+btnFree.onclick = () => {
+  const s = getTableState(activeTableId);
+  s.status = "free";
+  s.since = null;
+  saveState();
+  overlay.style.display = "none";
+  render();
+};
+
+btnPaid.onclick = () => {
+  const s = getTableState(activeTableId);
+  s.status = "paid";
+  s.since = Date.now();
+  saveState();
+  overlay.style.display = "none";
+  render();
+};
+
+/* ================== TIMER ================== */
+
+setInterval(() => {
+  document.querySelectorAll(".table").forEach(el => {
+    const id = parseInt(el.textContent.replace("Tisch ", ""));
+    const s = getTableState(id);
+    const timer = el.querySelector("small");
+
+    if (s.since) {
+      const mins = Math.floor((Date.now() - s.since) / 60000);
+      timer.textContent = `${mins} min`;
+    } else {
+      timer.textContent = "";
     }
-  };
-  reader.readAsText(file);
-});
-
-/* ---------- Init ---------- */
-layoutData.areas.forEach(a=>{
-  const opt=document.createElement('option');
-  opt.value=a.id;
-  opt.textContent=a.name;
-  viewSelect.appendChild(opt);
-});
-viewSelect.onchange=e=>render(e.target.value);
-
-render('all');
-
-/* ---------- Timer Update ---------- */
-setInterval(()=>{
-  layoutData.areas.forEach(area=>{
-    area.tables.forEach(t=>{
-      const s=getTableState(t.id);
-      const el=[...layoutEl.querySelectorAll('.table')].find(x=>x.textContent.includes(`Tisch ${t.id}`));
-      if(el){
-        const timerEl=el.querySelector('small');
-        if(s.status==='occupied'||s.status==='reminder'||s.status==='paid'){
-          const mins=Math.floor((Date.now()-s.since)/60000);
-          timerEl.textContent=`${mins} min`;
-        } else timerEl.textContent='';
-      }
-    });
   });
-},1000);
+}, 1000);
+
+/* ================== INIT ================== */
+
+render();
