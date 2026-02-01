@@ -72,11 +72,16 @@ function handleTransition(tableId, action) {
   const s = getTableState(tableId);
   const now = Date.now();
   
-  // Hilfsfunktion: Status setzen
+  // Sicherstellen, dass resetCount existiert
+  if (typeof s.resetCount === 'undefined') s.resetCount = 0;
+
   const set = (status, resetTimer = true) => {
     s.status = status;
     if (resetTimer) s.since = now;
-    if (status === "free") s.since = null;
+    if (status === "free") {
+      s.since = null;
+      s.resetCount = 0; // Reset Zähler wenn Tisch frei wird
+    }
     
     saveState();
     updateVisuals(); 
@@ -84,20 +89,31 @@ function handleTransition(tableId, action) {
 
   switch (s.status) {
     case "free":
-      if (action === "single") set("occupied", true);     
+      if (action === "single") {
+        s.resetCount = 0; // Neuer Gast -> 0
+        set("occupied", true);     
+      }
       if (action === "double") set("reminder", true);     
       if (action === "hold")   set("paid", true);         
       break;
 
     case "occupied":
-      if (action === "single") set("occupied", true);     // Reset Timer
-      if (action === "double") set("reminder", false);    // Reminder, Timer läuft weiter
+      if (action === "single") {
+        // Zähler erhöhen, aber maximal bis 3
+        s.resetCount = Math.min(s.resetCount + 1, 3);
+        set("occupied", true); // Reset Timer
+      }
+      if (action === "double") set("reminder", false);    
       if (action === "hold")   set("paid", true);         
       break;
 
     case "reminder":
-      if (action === "single") set("occupied", true);     // Reset Timer, Grün
-      if (action === "double") set("occupied", false);    // Grün, Timer läuft weiter
+      if (action === "single") {
+        // Auch hier: Reset -> Zähler hoch
+        s.resetCount = Math.min(s.resetCount + 1, 3);
+        set("occupied", true);
+      }
+      if (action === "double") set("occupied", false);    
       if (action === "hold")   set("paid", true);         
       break;
 
@@ -111,7 +127,6 @@ function handleTransition(tableId, action) {
       set("free");
   }
 }
-
 /* ================== COLOR ================== */
 function getColor(s) {
   if (s.status === "reminder") return "#9b59b6"; // Lila
@@ -180,6 +195,11 @@ function createLayout() {
       el.id = `table-${t.id}`;
       el.style.gridColumn = t.x;
       el.style.gridRow = t.y;
+
+      const counterEl = document.createElement("span");
+      counterEl.className = "reset-counter";
+      counterEl.id = `cnt-${t.id}`;
+      el.appendChild(counterEl);
       
       const idSpan = document.createElement("span");
       idSpan.textContent = t.id;
@@ -209,21 +229,33 @@ function updateVisuals() {
     area.tables.forEach(t => {
       const el = document.getElementById(`table-${t.id}`);
       const timerEl = document.getElementById(`timer-${t.id}`);
-      
-      // Falls Element ausgeblendet ist (durch Filter), ignorieren
-      if (!el || !timerEl) return;
+      const cntEl = document.getElementById(`cnt-${t.id}`); // NEU
+
+      if (!el || !timerEl || !cntEl) return;
 
       const s = getTableState(t.id);
       
+      // Farbe update
       const newColor = getColor(s);
       if (el.style.backgroundColor !== newColor) {
         el.style.backgroundColor = newColor;
       }
 
+      // Status
       if (el.dataset.status !== s.status) {
         el.dataset.status = s.status;
       }
 
+      // NEU: Counter Update
+      // Zeige Zahl nur, wenn > 0 und der Tisch aktiv ist (nicht frei/bezahlt)
+      // (Du kannst "paid" hinzufügen, wenn du die Rundenanzahl auch beim Bezahlen sehen willst)
+      if (s.resetCount > 0 && (s.status === 'occupied' || s.status === 'reminder' || s.status === 'paid')) {
+        cntEl.textContent = s.resetCount;
+      } else {
+        cntEl.textContent = "";
+      }
+
+      // Timer Text
       let timerText = "";
       if (s.since && (s.status === "occupied" || s.status === "reminder")) {
         const mins = Math.floor((now - s.since) / 60000);
