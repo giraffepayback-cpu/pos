@@ -111,16 +111,17 @@ function render() {
       let longPressTriggered = false;
 
       el.addEventListener("pointerdown", e => {
-        downTime = Date.now();
-        longPressTriggered = false;
+  if (e.pointerType === "mouse" && e.button !== 0) return;
 
-        if (e.pointerType === "touch") {
-          longPressTimer = setTimeout(() => {
-            longPressTriggered = true;
-            openContextMenu(t.id, el);
-          }, 600);
-        }
-      });
+  longPressTriggered = false;
+
+  if (e.pointerType === "touch") {
+    longPressTimer = setTimeout(() => {
+      longPressTriggered = true;
+      openContextMenu(t.id, el);
+    }, 600);
+  }
+});
 
      el.addEventListener("pointerup", e => {
   // ⛔ Rechtsklick darf KEIN Tap sein
@@ -173,19 +174,6 @@ function openContextMenu(id, el) {
   ctxTitle.textContent = `Tisch ${id}`;
   contextMenu.style.display = "block";
 }
-
-el.addEventListener("pointerdown", e => {
-  if (e.pointerType === "mouse" && e.button !== 0) return;
-
-  longPressTriggered = false;
-
-  if (e.pointerType === "touch") {
-    longPressTimer = setTimeout(() => {
-      longPressTriggered = true;
-      openContextMenu(t.id, el);
-    }, 600);
-  }
-});
 
 ctxServed.onclick = () => {
   const s = getTableState(contextTableId);
