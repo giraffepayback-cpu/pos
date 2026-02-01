@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Simple POS</title>
+<link rel="manifest" href="manifest.json">
+
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#111111">
+
+<style>
+:root {
+  --free: #666;
+  --occupied-green: #2ecc71;
+  --occupied-yellow: #f1c40f;
+  --occupied-red: #e74c3c;
+  --paid: #aaa;
+  --reminder: #9b59b6;
+  --bg: #222;
+  --header: #111;
+}
+body {
+  margin:0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: #fff;
+  overscroll-behavior: none;
+  /* Verhindert Text-Auswahl global */
+  -webkit-user-select: none;
+  user-select: none;
+  /* Verhindert Zoom durch Double-Tap global */
+  touch-action: manipulation; 
+}
+header {
+  display:flex;
+  gap:8px;
+  padding:8px;
+  background: var(--header);
+  position: sticky;
+  top:0;
+  z-index:10;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+select {
+  flex:1;
+  padding:10px;
+  font-size:16px;
+  background: #333;
+  color: white;
+  border: 1px solid #444;
+  border-radius: 4px;
+}
+.grid { 
+  display:grid; 
+  gap:10px; 
+  padding: 10px;
+  margin-bottom: 20px;
+}
+.table {
+  border-radius:8px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  font-weight: bold;
+  min-height:70px;
+  transition: transform 0.05s ease-in-out;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  cursor: pointer;
+  position: relative;
+  
+  /* Wichtig für Mobile: Keine Callouts/Markierungen */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.table:active {
+  transform: scale(0.96);
+}
+small { 
+  font-size:13px; 
+  font-weight: normal; 
+  opacity:0.9; 
+  margin-top:4px; 
+  pointer-events: none; /* Klicks gehen durch den Text auf den Button */
+}
+/* Visuelles Feedback für Reminder */
+.table[data-status="reminder"] {
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(155, 89, 182, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0); }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <select id="viewSelect"><option value="all">Alle Bereiche</option></select>
+  <input type="file" id="importJson" accept=".json" style="width: 30px; opacity: 0.5;">
+</header>
+
+<main id="layout"></main>
+
+<script src="app.js"></script>
+<script>
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js');}
+</script>
+
+</body>
+</html>
