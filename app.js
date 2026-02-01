@@ -87,6 +87,7 @@ function render(view){
       const s=getTableState(t.id);
       const el=document.createElement('div');
 		let longPressTriggered = false;
+		let clickTimeout = null;
 		let clickTimeout;
 		
       el.className='table';
@@ -135,8 +136,7 @@ el.addEventListener('touchend', e => {
 	
 /* ---------- Maus Listener ---------- */
 el.addEventListener('click', e => {
-  // verhindert doppelte Auslösung durch Touch + Maus
-  if (e.pointerType === 'touch') return;
+  if (longPressTriggered) return;
 
   clickTimeout = setTimeout(() => {
     activeTableId = t.id;
@@ -158,6 +158,7 @@ el.addEventListener('dblclick', e => {
 
 el.addEventListener('contextmenu', e => {
   e.preventDefault();
+  clearTimeout(clickTimeout);
   openContextMenu(t.id);
 });
 
@@ -165,8 +166,10 @@ el.addEventListener('contextmenu', e => {
       let longPress;
       el.addEventListener('touchstart',()=>{
 		  longPressTriggered = false;
+		  
         longPress=setTimeout(()=>{
 			longPressTriggered = true;
+			 clearTimeout(clickTimeout);
           contextTableId=t.id;
           const rect = el.getBoundingClientRect();
           contextMenu.style.top = `${rect.bottom + window.scrollY}px`;
